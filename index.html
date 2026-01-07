@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Creative Lab - 模块化原子实验中心</title>
+    <title>AI Creative Lab - 模块化原子实验中心 (Cloud Sync Fixed)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Identity Services (GIS) & API Client -->
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono&display=swap');
         body { font-family: 'Inter', sans-serif; }
@@ -20,6 +23,7 @@
             50% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); }
         }
         .running-glow { animation: pulse-glow 2s infinite; }
+        .cloud-active { color: #10b981; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 pb-20">
@@ -30,7 +34,7 @@
             <div class="flex items-center gap-8">
                 <div class="flex items-center gap-3">
                     <div class="p-2 bg-slate-900 rounded-xl" id="logo-icon"></div>
-                    <h1 class="font-black text-lg tracking-tight italic">AI CREATIVE LAB</h1>
+                    <h1 class="font-black text-lg tracking-tight italic uppercase">AI Creative Lab</h1>
                 </div>
                 
                 <div class="flex items-center gap-6 h-20">
@@ -40,6 +44,10 @@
             </div>
 
             <div class="flex items-center gap-4">
+                <!-- 云同步状态 -->
+                <div id="cloud-status" class="hidden md:flex items-center gap-2 px-4 py-2 bg-white border border-slate-100 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-300 shadow-sm transition-all">
+                    <span id="cloud-icon"></span> <span id="cloud-text">Local Mode</span>
+                </div>
                 <button id="settings-btn" onclick="toggleSettings(true)" class="p-3 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"></button>
                 <div id="prompt-actions" class="flex gap-2">
                     <button onclick="toggleAddForm()" class="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">
@@ -49,11 +57,11 @@
             </div>
         </nav>
 
-        <!-- ==================== 动态项目导航 ==================== -->
+        <!-- ==================== 项目导航 ==================== -->
         <div class="max-w-6xl mx-auto px-6 pt-10 flex items-center justify-between">
             <div class="flex items-center gap-2 opacity-40">
                 <span id="grid-icon"></span>
-                <span id="scene-label" class="text-[10px] font-black uppercase tracking-widest italic">模块项目管理</span>
+                <span id="scene-label" class="text-[10px] font-black uppercase tracking-widest italic">Scene Context</span>
             </div>
             <div class="relative">
                 <button id="project-dropdown-btn" onclick="toggleProjectMenu()" class="flex items-center gap-2 bg-white border border-slate-200 px-5 py-2.5 rounded-2xl font-bold text-xs hover:bg-slate-50 transition-all shadow-sm">
@@ -67,7 +75,7 @@
                     </div>
                     <div id="project-list-container"></div>
                     <button onclick="showAddProject()" class="w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 mt-2 border-t border-slate-50 pt-2 flex items-center gap-2">
-                        <span id="plus-icon"></span> 创建新项目
+                        <span id="plus-icon"></span> 创建新场景项目
                     </button>
                 </div>
             </div>
@@ -95,7 +103,7 @@
                             <textarea id="input-zh" placeholder="提示词对照翻译" class="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs italic h-16 outline-none"></textarea>
                         </div>
                     </div>
-                    <button onclick="saveVersion()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:bg-black transition-all">确认保存归档</button>
+                    <button onclick="saveVersion()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:bg-black transition-all">保存此原子迭代</button>
                 </div>
             </div>
             <div id="version-list" class="space-y-8"></div>
@@ -109,22 +117,22 @@
                         <span id="paste-icon-large"></span>
                     </div>
                     <div>
-                        <h2 class="font-black text-xl tracking-tight leading-none mb-1">重绘任务队列</h2>
-                        <p id="task-info" class="text-xs text-slate-400 font-bold uppercase tracking-tight">场景: 未选择</p>
+                        <h2 class="font-black text-xl tracking-tight leading-none mb-1">批量重绘队列</h2>
+                        <p id="task-info" class="text-xs text-slate-400 font-bold uppercase tracking-tight italic">场景: 加载中...</p>
                     </div>
                 </div>
                 
                 <div class="flex gap-2">
                     <input type="file" id="bulk-upload" multiple accept="image/*" class="hidden" />
                     <button onclick="document.getElementById('bulk-upload').click()" class="bg-white border-2 border-slate-100 hover:border-indigo-600 hover:text-indigo-600 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all">
-                        <span id="upload-icon"></span> 上传
+                        <span id="upload-icon"></span> 浏览
                     </button>
                     <button onclick="addUrlTask()" class="bg-white border-2 border-slate-100 hover:border-indigo-600 hover:text-indigo-600 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all">
                         URL
                     </button>
                     <div class="w-px h-10 bg-slate-100 mx-2"></div>
                     <button id="run-all-btn" onclick="runPendingTasks()" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black flex items-center gap-3 hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95">
-                        <span id="play-icon"></span> 开启批量打版
+                        <span id="play-icon"></span> 开启生成
                     </button>
                 </div>
             </div>
@@ -133,8 +141,8 @@
             
             <div id="generator-empty" class="py-40 text-center rounded-[3rem] border-4 border-dashed border-slate-200">
                 <div class="bg-slate-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" id="empty-image-icon"></div>
-                <h3 class="text-xl font-bold text-slate-400">队列空空如也</h3>
-                <p class="text-slate-300 text-sm mt-2 font-medium italic">支持 <b>Ctrl + V</b> 直接从剪贴板粘贴图片</p>
+                <h3 class="text-xl font-bold text-slate-400">尚未添加图片</h3>
+                <p class="text-slate-300 text-sm mt-2 font-medium">支持从剪贴板 <b>Ctrl + V</b> 直接粘贴产品原图</p>
             </div>
         </main>
     </div>
@@ -144,33 +152,52 @@
         <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl p-10 border border-white animate-in zoom-in-95 duration-200">
             <div class="flex justify-between items-center mb-8">
                 <h2 class="text-2xl font-black flex items-center gap-3">
-                    <span id="config-icon-large" class="text-indigo-600"></span> 系统配置
+                    <span id="config-icon-large" class="text-indigo-600"></span> 系统配置中心
                 </h2>
                 <button onclick="toggleSettings(false)" class="p-2 hover:bg-slate-100 rounded-full transition-all text-slate-400">
                     <span id="close-icon"></span>
                 </button>
             </div>
 
-            <div class="space-y-8">
+            <div class="space-y-6">
+                <!-- Google Cloud Section -->
+                <div class="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span id="google-icon-svg"></span>
+                            <h3 class="font-bold text-sm tracking-tight text-slate-700">谷歌云端同步服务</h3>
+                        </div>
+                        <button id="google-login-btn" onclick="handleGoogleAuth()" class="px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-black hover:bg-slate-100 transition-all flex items-center gap-2 shadow-sm">
+                            <span id="login-text">连接 Google Drive</span>
+                        </button>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Google Cloud Client ID</label>
+                            <input type="text" id="google-client-id" class="w-full px-5 py-3 bg-white border border-slate-200 rounded-xl outline-none text-xs font-mono focus:ring-2 focus:ring-indigo-500" placeholder="Paste your OAuth 2.0 Client ID..."/>
+                        </div>
+                    </div>
+                </div>
+
                 <div>
-                    <label class="block text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-3 underline">Google AI Studio API Key (全局)</label>
+                    <label class="block text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-3">Google AI Studio API Key (Gemini)</label>
                     <div class="relative">
-                        <input type="password" id="api-key-input" class="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-600 font-mono text-sm" placeholder="Paste your Gemini API key..."/>
+                        <input type="password" id="api-key-input" class="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-600 font-mono text-sm" placeholder="Paste your API key..."/>
                         <span id="key-icon-inner" class="absolute right-6 top-4 text-slate-300"></span>
                     </div>
                 </div>
 
                 <div id="gen-prompt-setting-area" class="hidden">
                     <label class="block text-[10px] font-black uppercase text-indigo-500 tracking-[0.2em] mb-3 flex justify-between items-center">
-                        <span>当前打版项目提示词 (Project Prompt)</span>
-                        <span id="current-setting-proj-name" class="text-slate-300 lowercase font-bold tracking-tight"></span>
+                        <span>当前项目打版提示词 (Image Prompt)</span>
+                        <span id="current-setting-proj-name" class="text-slate-300 lowercase font-bold tracking-tight italic"></span>
                     </label>
-                    <textarea id="global-gen-prompt" rows="5" class="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-600 text-sm font-medium leading-relaxed" placeholder="例如：Professional high-end product photography, cinematic lighting..."></textarea>
+                    <textarea id="global-gen-prompt" rows="4" class="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-600 text-sm font-medium leading-relaxed" placeholder="例如：Professional product photography, soft studio lighting..."></textarea>
                 </div>
             </div>
 
-            <button onclick="saveSettings()" class="w-full mt-10 py-5 bg-indigo-600 text-white rounded-3xl font-black text-lg hover:bg-indigo-700 shadow-2xl shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2">
-                <span id="save-icon"></span> 保存配置
+            <button onclick="saveSettings()" class="w-full mt-8 py-5 bg-indigo-600 text-white rounded-3xl font-black text-lg hover:bg-indigo-700 shadow-2xl shadow-indigo-100 transition-all flex items-center justify-center gap-2">
+                <span id="save-icon"></span> 保存当前所有配置
             </button>
         </div>
     </div>
@@ -178,9 +205,9 @@
     <!-- 创建项目弹窗 -->
     <div id="project-modal" class="hidden fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
         <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-8 border border-white">
-            <h2 class="text-xl font-bold mb-4">创建新项目</h2>
-            <p id="modal-type-desc" class="text-xs text-slate-400 mb-4 font-bold uppercase tracking-widest"></p>
-            <input id="new-project-input" class="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl mb-6 outline-none focus:ring-2 focus:ring-indigo-600" placeholder="项目名称..."/>
+            <h2 class="text-xl font-bold mb-4">创建新场景项目</h2>
+            <p id="modal-type-desc" class="text-xs text-slate-400 mb-4 font-bold uppercase tracking-widest italic"></p>
+            <input id="new-project-input" class="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl mb-6 outline-none focus:ring-2 focus:ring-indigo-600" placeholder="例如：花卉项目、服饰项目..."/>
             <div class="flex gap-3">
                 <button onclick="document.getElementById('project-modal').classList.add('hidden')" class="flex-1 font-bold text-slate-400">取消</button>
                 <button onclick="confirmProjectAdd()" class="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-bold active:scale-95 transition-all">立即创建</button>
@@ -209,85 +236,177 @@
                 retry: `<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M3 21v-5h5" />`,
                 download: `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" />`,
                 config: `<path d="m16 7 1-1 3.5 3.5-1 1" /><path d="m19 19-7-7-4 4 7 7 4-4Z" /><path d="m14 7-5.5 5.5 2 2" /><path d="M9 11 3 17v4h4l6-6" />`,
-                key: `<path d="m21 2-2 2" /><circle cx="15.5" cy="7.5" r="3.5" /><path d="m15.5 11-1 1" /><path d="m11.8 14.8-1.2 1.2" /><path d="M10 16v4h4l.8-.8" />`
+                key: `<path d="m21 2-2 2" /><circle cx="15.5" cy="7.5" r="3.5" /><path d="m15.5 11-1 1" /><path d="m11.8 14.8-1.2 1.2" /><path d="M10 16v4h4l.8-.8" />`,
+                cloud: `<path d="M17.5 19c2.5 0 4.5-2 4.5-4.5 0-2.3-1.7-4.1-3.9-4.5a7 7 0 1 0-13.1 3.1C3 13.5 1.5 15.1 1.5 17a4 4 0 0 0 4 4h12" /><path d="M12 13v8" /><path d="m9 16 3-3 3 3" />`,
+                google: `<path d="M12 12V6.5m0 5.5 5.5-5.5M12 12l-5.5-5.5m5.5 5.5V17.5M12 12l5.5 5.5M12 12l-5.5 5.5" />`
             };
             return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls}">${icons[name] || ''}</svg>`;
         };
 
         // --- 核心状态 ---
         const state = {
-            view: 'prompts', // 'prompts' 或 'generator'
+            view: 'prompts',
             promptProjects: [],
             genProjects: [],
             activePromptId: null,
             activeGenId: null,
-            versions: [], // 提示词库
-            genTasks: [], // 重绘任务
+            versions: [],
+            genTasks: [],
             apiKey: localStorage.getItem('gemini_api_key') || '',
+            googleClientId: localStorage.getItem('google_client_id') || '',
+            googleToken: null,
+            isCloudSynced: false,
+            cloudFileId: null,
             isAdding: false
         };
 
-        // --- 持久化 ---
-        const save = () => {
-            localStorage.setItem('prompt_lab_projects_prompts', JSON.stringify(state.promptProjects));
-            localStorage.setItem('prompt_lab_projects_gen', JSON.stringify(state.genProjects));
-            localStorage.setItem('prompt_lab_active_prompt_id', state.activePromptId);
-            localStorage.setItem('prompt_lab_active_gen_id', state.activeGenId);
-            localStorage.setItem('prompt_lab_history', JSON.stringify(state.versions));
-            localStorage.setItem('prompt_lab_tasks', JSON.stringify(state.genTasks));
+        // --- 存储逻辑 (Local + Cloud) ---
+        const save = async () => {
+            const data = {
+                promptProjects: state.promptProjects,
+                genProjects: state.genProjects,
+                activePromptId: state.activePromptId,
+                activeGenId: state.activeGenId,
+                versions: state.versions,
+                genTasks: state.genTasks
+            };
+            localStorage.setItem('prompt_lab_app_data', JSON.stringify(data));
             localStorage.setItem('gemini_api_key', state.apiKey);
+            localStorage.setItem('google_client_id', state.googleClientId);
+
+            if (state.isCloudSynced && state.googleToken) {
+                await syncToGoogleDrive(data);
+            }
         };
 
         const load = () => {
-            state.promptProjects = JSON.parse(localStorage.getItem('prompt_lab_projects_prompts')) || [{ id: 'pp1', name: '默认提示词项目', createdAt: new Date() }];
-            state.genProjects = JSON.parse(localStorage.getItem('prompt_lab_projects_gen')) || [{ id: 'gp1', name: '默认打版项目', createdAt: new Date(), genPrompt: 'High-end product photography.' }];
-            
-            state.activePromptId = localStorage.getItem('prompt_lab_active_prompt_id') || state.promptProjects[0].id;
-            state.activeGenId = localStorage.getItem('prompt_lab_active_gen_id') || state.genProjects[0].id;
-            
-            state.versions = JSON.parse(localStorage.getItem('prompt_lab_history')) || [];
-            state.genTasks = JSON.parse(localStorage.getItem('prompt_lab_tasks')) || [];
-            state.apiKey = localStorage.getItem('gemini_api_key') || '';
+            const local = JSON.parse(localStorage.getItem('prompt_lab_app_data'));
+            if (local) Object.assign(state, local);
+            else {
+                state.promptProjects = [{ id: 'pp1', name: '默认文案项目', createdAt: new Date() }];
+                state.genProjects = [{ id: 'gp1', name: '默认打版项目', createdAt: new Date(), genPrompt: 'Professional studio lighting.' }];
+                state.activePromptId = state.promptProjects[0].id;
+                state.activeGenId = state.genProjects[0].id;
+            }
         };
+
+        // --- Google Drive API 逻辑 ---
+        let tokenClient;
+
+        const initGoogleAuth = () => {
+            if (!state.googleClientId) return;
+            
+            // 初始化 GIS 客户端
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: state.googleClientId,
+                scope: 'https://www.googleapis.com/auth/drive.file',
+                callback: async (resp) => {
+                    if (resp.error) throw resp;
+                    state.googleToken = resp.access_token;
+                    state.isCloudSynced = true;
+                    document.getElementById('login-text').innerText = '账号同步中...';
+                    
+                    // 加载 GAPI 客户端以进行文件操作
+                    gapi.load('client', async () => {
+                        await gapi.client.init({});
+                        await syncFromGoogleDrive();
+                        render();
+                    });
+                },
+            });
+        };
+
+        const handleGoogleAuth = () => {
+            if (!state.googleClientId) { alert('请先输入 OAuth Client ID'); return; }
+            if (!tokenClient) initGoogleAuth();
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+        };
+
+        async function syncToGoogleDrive(data) {
+            try {
+                const boundary = '-------314159265358979323846';
+                const delimiter = "\r\n--" + boundary + "\r\n";
+                const close_delim = "\r\n--" + boundary + "--";
+
+                const metadata = { name: 'ai_creative_lab_data.json', mimeType: 'application/json' };
+                const body = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                           delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(data) +
+                           close_delim;
+
+                let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+                let method = 'POST';
+
+                if (state.cloudFileId) {
+                    url = `https://www.googleapis.com/upload/drive/v3/files/${state.cloudFileId}?uploadType=multipart`;
+                    method = 'PATCH';
+                }
+
+                await fetch(url, {
+                    method,
+                    headers: { Authorization: `Bearer ${state.googleToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                    body
+                });
+            } catch (e) { console.error('Sync error', e); }
+        }
+
+        async function syncFromGoogleDrive() {
+            try {
+                const searchRes = await fetch("https://www.googleapis.com/drive/v3/files?q=name='ai_creative_lab_data.json' and trashed=false", {
+                    headers: { Authorization: `Bearer ${state.googleToken}` }
+                });
+                const { files } = await searchRes.json();
+                if (files && files.length > 0) {
+                    state.cloudFileId = files[0].id;
+                    const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${state.cloudFileId}?alt=media`, {
+                        headers: { Authorization: `Bearer ${state.googleToken}` }
+                    });
+                    const cloudData = await fileRes.json();
+                    // 合并云端数据
+                    Object.assign(state, cloudData);
+                    document.getElementById('login-text').innerText = '账号已同步';
+                }
+            } catch (e) { console.error('Fetch cloud data error', e); }
+        }
 
         // --- UI 渲染 ---
         const render = () => {
-            const isPromptView = state.view === 'prompts';
-            const currentProjects = isPromptView ? state.promptProjects : state.genProjects;
-            const activeId = isPromptView ? state.activePromptId : state.activeGenId;
-            const currentProj = currentProjects.find(p => p.id === activeId);
+            const isPrompt = state.view === 'prompts';
+            const curProjects = isPrompt ? state.promptProjects : state.genProjects;
+            const actId = isPrompt ? state.activePromptId : state.activeGenId;
+            const curProj = curProjects.find(p => p.id === actId);
 
-            // Tab 切换
-            document.getElementById('view-prompts').classList.toggle('hidden', !isPromptView);
-            document.getElementById('view-generator').classList.toggle('hidden', isPromptView);
-            document.getElementById('tab-prompts').className = `h-full px-2 font-bold text-sm transition-all border-b-3 ${isPromptView ? 'active-tab' : 'border-transparent text-slate-400'}`;
-            document.getElementById('tab-generator').className = `h-full px-2 font-bold text-sm transition-all border-b-3 ${!isPromptView ? 'active-tab' : 'border-transparent text-slate-400'}`;
+            document.getElementById('view-prompts').classList.toggle('hidden', !isPrompt);
+            document.getElementById('view-generator').classList.toggle('hidden', isPrompt);
+            document.getElementById('tab-prompts').className = `h-full px-2 font-bold text-sm transition-all border-b-3 ${isPrompt ? 'active-tab' : 'border-transparent text-slate-400'}`;
+            document.getElementById('tab-generator').className = `h-full px-2 font-bold text-sm transition-all border-b-3 ${!isPrompt ? 'active-tab' : 'border-transparent text-slate-400'}`;
+            
+            const cloudContainer = document.getElementById('cloud-status');
+            cloudContainer.classList.remove('hidden');
+            document.getElementById('cloud-icon').innerHTML = getIcon('cloud', 14, state.isCloudSynced ? 'cloud-active' : '');
+            document.getElementById('cloud-text').innerText = state.isCloudSynced ? 'Synced to Cloud' : 'Local Only';
+            document.getElementById('cloud-text').className = state.isCloudSynced ? 'cloud-active' : '';
 
-            // 导航静态
             document.getElementById('logo-icon').innerHTML = getIcon('beaker', 18, 'text-white');
             document.getElementById('settings-btn').innerHTML = getIcon('settings', 20);
-            document.getElementById('current-project-name').innerText = currentProj ? currentProj.name : '选择场景';
+            document.getElementById('current-project-name').innerText = curProj ? curProj.name : '选择场景';
             document.getElementById('current-project-icon').innerHTML = getIcon('folder', 14);
             document.getElementById('dropdown-arrow').innerHTML = getIcon('chevronDown', 12);
             document.getElementById('grid-icon').innerHTML = getIcon('grid', 14);
             document.getElementById('plus-icon').innerHTML = getIcon('plus', 12);
-            document.getElementById('menu-type-label').innerText = isPromptView ? '提示词' : '打版';
-
-            // 设置视图状态
-            document.getElementById('prompt-actions').classList.toggle('hidden', !isPromptView);
+            document.getElementById('prompt-actions').classList.toggle('hidden', !isPrompt);
             document.getElementById('main-plus-icon').innerHTML = getIcon(state.isAdding ? 'x' : 'plus', 18);
             document.getElementById('btn-text').innerText = state.isAdding ? '取消' : '记录迭代';
+            document.getElementById('google-icon-svg').innerHTML = getIcon('google', 16, 'text-indigo-600');
+            document.getElementById('menu-type-label').innerText = isPrompt ? '提示词' : '打版';
 
-            // 项目列表
-            const projectListHtml = currentProjects.map(p => `
-                <button onclick="switchProject('${p.id}')" class="w-full text-left px-4 py-3 rounded-xl text-sm font-bold flex items-center justify-between ${activeId === p.id ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-slate-50'}">
-                    ${p.name}
-                    ${activeId === p.id ? getIcon('check', 14) : ''}
+            const projectListHtml = curProjects.map(p => `
+                <button onclick="switchProject('${p.id}')" class="w-full text-left px-4 py-3 rounded-xl text-sm font-bold flex items-center justify-between ${actId === p.id ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-slate-50'}">
+                    ${p.name} ${actId === p.id ? getIcon('check', 14) : ''}
                 </button>
             `).join('');
             document.getElementById('project-list-container').innerHTML = projectListHtml;
 
-            if (isPromptView) renderPrompts();
+            if (isPrompt) renderPrompts();
             else renderGenerator();
         };
 
@@ -295,9 +414,8 @@
             document.getElementById('sparkles-icon').innerHTML = getIcon('sparkles', 22);
             document.getElementById('btn-spark-icon').innerHTML = getIcon('sparkles', 12);
             document.getElementById('add-form-container').classList.toggle('hidden', !state.isAdding);
-
             const filtered = state.versions.filter(v => v.projectId === state.activePromptId).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-            document.getElementById('version-list').innerHTML = filtered.length === 0 ? `<div class="py-32 text-center opacity-20"><p class="font-bold tracking-widest uppercase text-[10px]">没有找到提示词历史记录</p></div>` : filtered.map((v, idx) => `
+            document.getElementById('version-list').innerHTML = filtered.length === 0 ? `<div class="py-32 text-center opacity-20"><p class="font-bold tracking-widest uppercase text-[10px]">No records found</p></div>` : filtered.map((v, idx) => `
                 <div class="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300">
                     <div class="px-8 py-5 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center">
                         <div class="flex items-center gap-4">
@@ -313,14 +431,8 @@
                     </div>
                     <div class="p-8 space-y-6">
                         <div class="flex flex-col md:flex-row gap-4">
-                            <div class="flex-1 bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100">
-                                <h4 class="text-indigo-600 text-[9px] font-black uppercase mb-2 flex items-center gap-2">迭代逻辑</h4>
-                                <p class="text-xs font-bold text-indigo-900 leading-relaxed">${v.reason}</p>
-                            </div>
-                            <div class="flex-1 bg-rose-50/50 p-5 rounded-2xl border border-rose-100">
-                                <h4 class="text-rose-600 text-[9px] font-black uppercase mb-2 flex items-center gap-2">缺陷备注</h4>
-                                <p class="text-xs font-bold text-rose-900 leading-relaxed">${v.imperfection}</p>
-                            </div>
+                            <div class="flex-1 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100"><h4 class="text-indigo-600 text-[9px] font-black mb-2 flex items-center gap-2">迭代原因</h4><p class="text-xs font-bold text-indigo-900">${v.reason}</p></div>
+                            <div class="flex-1 bg-rose-50/50 p-4 rounded-2xl border border-rose-100"><h4 class="text-rose-600 text-[9px] font-black mb-2 flex items-center gap-2">改进建议</h4><p class="text-xs font-bold text-rose-900">${v.imperfection}</p></div>
                         </div>
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div class="bg-slate-900 text-slate-300 p-6 rounded-3xl text-[10px] font-mono leading-relaxed h-32 overflow-y-auto border-2 border-slate-800" id="en-${v.id}">${v.enPrompt}</div>
@@ -336,187 +448,103 @@
             document.getElementById('upload-icon').innerHTML = getIcon('upload', 18);
             document.getElementById('play-icon').innerHTML = getIcon('play', 18);
             document.getElementById('empty-image-icon').innerHTML = getIcon('image', 32, 'text-slate-200');
-
-            const currentProj = state.genProjects.find(p => p.id === state.activeGenId);
-            document.getElementById('task-info').innerText = currentProj ? `场景: ${currentProj.name}` : '未选择打版场景';
-
-            const filteredTasks = state.genTasks.filter(t => t.projectId === state.activeGenId);
-            document.getElementById('generator-empty').classList.toggle('hidden', filteredTasks.length > 0);
-
-            const gridHtml = filteredTasks.map(t => `
+            const curP = state.genProjects.find(p => p.id === state.activeGenId);
+            document.getElementById('task-info').innerText = curP ? `当前打版场景: ${curP.name}` : '未选择场景';
+            const tasks = state.genTasks.filter(t => t.projectId === state.activeGenId);
+            document.getElementById('generator-empty').classList.toggle('hidden', tasks.length > 0);
+            document.getElementById('task-grid').innerHTML = tasks.map(t => `
                 <div class="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 ${t.status === 'running' ? 'running-glow ring-2 ring-indigo-500' : ''}">
                     <div class="aspect-square bg-slate-100 relative">
-                        <img src="${t.status === 'success' ? t.result : t.sourceUrl}" class="w-full h-full object-cover transition-opacity ${t.status === 'running' ? 'opacity-30' : 'opacity-100'}" />
+                        <img src="${t.status === 'success' ? t.result : t.sourceUrl}" class="w-full h-full object-cover ${t.status === 'running' ? 'opacity-30' : ''}" />
                         <div class="absolute inset-0 flex items-center justify-center">
-                            ${t.status === 'running' ? `
-                                <div class="flex flex-col items-center gap-3">
-                                    <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                                    <span class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Re-Rendering...</span>
-                                </div>` : ''}
-                            ${t.status === 'error' ? `<div class="bg-rose-500/90 text-white p-4 rounded-3xl text-[10px] font-bold mx-6 text-center">${t.error}</div>` : ''}
+                            ${t.status === 'running' ? `<div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>` : ''}
                         </div>
-                        <div class="absolute top-4 left-4"><span class="bg-black/40 backdrop-blur-md text-white px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest">${t.status}</span></div>
                     </div>
-                    <div class="p-6 flex justify-between items-center bg-slate-50/50 border-t border-slate-50">
+                    <div class="p-6 flex justify-between items-center bg-slate-50/50 border-t">
                         <div class="flex gap-2">
-                            ${t.status === 'success' ? `<button onclick="downloadImg('${t.id}')" class="p-4 bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-100 active:scale-90 transition-all">${getIcon('download', 18)}</button>` : ''}
-                            <button onclick="runSingleTask('${t.id}')" class="p-4 bg-white border border-slate-100 text-slate-300 hover:text-indigo-600 hover:border-indigo-600 rounded-2xl transition-all active:scale-90">${getIcon('retry', 18)}</button>
+                            ${t.status === 'success' ? `<button onclick="downloadImg('${t.id}')" class="p-4 bg-indigo-600 text-white rounded-2xl shadow-xl active:scale-90">${getIcon('download', 18)}</button>` : ''}
+                            <button onclick="runSingleTask('${t.id}')" class="p-4 bg-white border border-slate-100 text-slate-300 hover:text-indigo-600 rounded-2xl active:scale-90">${getIcon('retry', 18)}</button>
                         </div>
                         <button onclick="removeTask('${t.id}')" class="p-4 text-slate-200 hover:text-rose-500 transition-colors">${getIcon('trash', 18)}</button>
                     </div>
                 </div>
             `).join('');
-            document.getElementById('task-grid').innerHTML = gridHtml;
         };
 
-        // --- 逻辑控制 ---
-
-        window.switchView = (v) => { 
-            state.view = v; 
-            state.isAdding = false;
-            render(); 
-        };
-
+        // --- 逻辑交互 ---
+        window.switchView = (v) => { state.view = v; state.isAdding = false; render(); };
         window.toggleProjectMenu = () => document.getElementById('project-menu').classList.toggle('hidden');
-
-        window.switchProject = (id) => {
-            if (state.view === 'prompts') state.activePromptId = id;
-            else state.activeGenId = id;
-            
-            document.getElementById('project-menu').classList.add('hidden');
-            save(); render();
+        window.switchProject = (id) => { 
+            if (state.view === 'prompts') state.activePromptId = id; else state.activeGenId = id;
+            document.getElementById('project-menu').classList.add('hidden'); save(); render();
         };
-
-        window.showAddProject = () => {
-            const isPrompt = state.view === 'prompts';
-            document.getElementById('modal-type-desc').innerText = isPrompt ? '新建提示词实验场景' : '新建批量打版任务场景';
-            document.getElementById('project-modal').classList.remove('hidden');
-            document.getElementById('project-menu').classList.add('hidden');
+        window.showAddProject = () => { 
+            const isP = state.view === 'prompts';
+            document.getElementById('modal-type-desc').innerText = isP ? '新建提示词场景' : '新建打版任务场景';
+            document.getElementById('project-modal').classList.remove('hidden'); 
+            document.getElementById('project-menu').classList.add('hidden'); 
         };
-
         window.confirmProjectAdd = () => {
             const name = document.getElementById('new-project-input').value;
             if (name) {
-                const isPrompt = state.view === 'prompts';
-                const newP = { id: (isPrompt ? 'pp_' : 'gp_') + Date.now(), name, createdAt: new Date() };
-                if (isPrompt) {
-                    state.promptProjects.push(newP);
-                    state.activePromptId = newP.id;
-                } else {
-                    newP.genPrompt = 'Professional photography style.';
-                    state.genProjects.push(newP);
-                    state.activeGenId = newP.id;
-                }
-                save(); render();
-                document.getElementById('project-modal').classList.add('hidden');
-                document.getElementById('new-project-input').value = '';
+                const isP = state.view === 'prompts';
+                const id = (isP ? 'pp_' : 'gp_') + Date.now();
+                const newP = { id, name, createdAt: new Date() };
+                if (isP) { state.promptProjects.push(newP); state.activePromptId = id; }
+                else { newP.genPrompt = 'High-end style.'; state.genProjects.push(newP); state.activeGenId = id; }
+                save(); render(); document.getElementById('project-modal').classList.add('hidden');
             }
         };
 
-        // 打版任务管理
         const addImageTask = (base64, previewUrl) => {
             if (state.view !== 'generator' || !state.activeGenId) return;
-            state.genTasks.push({ id: 't_' + Date.now() + Math.random().toString(36).slice(2), projectId: state.activeGenId, source: base64, sourceUrl: previewUrl, status: 'ready', result: null, error: null });
+            state.genTasks.push({ id: 't_'+Date.now()+Math.random().toString(36).slice(2), projectId: state.activeGenId, source: base64, sourceUrl: previewUrl, status: 'ready', result: null, error: null });
             save(); render();
         };
 
         window.removeTask = (id) => { state.genTasks = state.genTasks.filter(t => t.id !== id); save(); render(); };
-        window.downloadImg = (id) => {
-            const t = state.genTasks.find(x => x.id === id);
-            if (t?.result) {
-                const l = document.createElement('a');
-                l.href = t.result;
-                l.download = `re-render-${idx}.png`;
-                l.click();
-            }
-        };
+        window.downloadImg = (id) => { const t = state.genTasks.find(x => x.id === id); if (t?.result) { const l = document.createElement('a'); l.href = t.result; l.download = `rendered.png`; l.click(); } };
+        window.addEventListener('paste', (e) => { if (state.view !== 'generator') return; const items = e.clipboardData.items; for (let i = 0; i < items.length; i++) { if (items[i].type.indexOf('image') !== -1) { const blob = items[i].getAsFile(); const reader = new FileReader(); reader.onload = (ev) => addImageTask(ev.target.result.split(',')[1], ev.target.result); reader.readAsDataURL(blob); } } });
+        document.getElementById('bulk-upload').onchange = (e) => { Array.from(e.target.files).forEach(f => { const reader = new FileReader(); reader.onload = (ev) => addImageTask(ev.target.result.split(',')[1], ev.target.result); reader.readAsDataURL(f); }); e.target.value = ''; };
+        window.addUrlTask = () => { const url = prompt("请输入图片外链 URL:"); if (url) addImageTask(null, url); };
 
-        window.addEventListener('paste', (e) => {
-            if (state.view !== 'generator') return;
-            const items = e.clipboardData.items;
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) {
-                    const blob = items[i].getAsFile();
-                    const reader = new FileReader();
-                    reader.onload = (ev) => addImageTask(ev.target.result.split(',')[1], ev.target.result);
-                    reader.readAsDataURL(blob);
-                }
-            }
-        });
-
-        document.getElementById('bulk-upload').onchange = (e) => {
-            const files = Array.from(e.target.files);
-            files.forEach(f => {
-                const reader = new FileReader();
-                reader.onload = (ev) => addImageTask(ev.target.result.split(',')[1], ev.target.result);
-                reader.readAsDataURL(f);
-            });
-            e.target.value = '';
-        };
-
-        window.addUrlTask = () => {
-            const url = prompt("请输入图片外链 URL:");
-            if (url) addImageTask(null, url);
-        };
-
-        // API
         const fetchWithRetry = async (url, options, retries = 5, backoff = 1000) => {
-            try {
-                const res = await fetch(url, options);
-                if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || `API Error: ${res.status}`); }
-                return await res.json();
-            } catch (err) {
-                if (retries > 0) { await new Promise(r => setTimeout(r, backoff)); return fetchWithRetry(url, options, retries-1, backoff*2); }
-                throw err;
-            }
+            try { const res = await fetch(url, options); if (!res.ok) { const err = await res.json(); throw new Error(err.error?.message || `API Error`); } return await res.json(); }
+            catch (err) { if (retries > 0) { await new Promise(r => setTimeout(r, backoff)); return fetchWithRetry(url, options, retries-1, backoff*2); } throw err; }
         };
 
         window.runSingleTask = async (id) => {
             const task = state.genTasks.find(t => t.id === id);
             if (!task || !state.apiKey) return;
-            const currentProj = state.genProjects.find(p => p.id === task.projectId);
-            if (!currentProj) return;
-
-            task.status = 'running'; task.error = null; render();
+            const curP = state.genProjects.find(p => p.id === task.projectId);
+            task.status = 'running'; render();
             try {
-                const payload = {
-                    contents: [{
-                        parts: [
-                            { text: `Task: Follow the creative prompt to re-render this product while strictly maintaining its core silhouette and characteristics. Style: ${currentProj.genPrompt}` },
-                            { inlineData: { mimeType: "image/png", data: task.source } }
-                        ]
-                    }],
-                    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
-                };
                 const data = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${state.apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Task: Re-render product maintaining shape. Style: ${curP.genPrompt}` }, { inlineData: { mimeType: "image/png", data: task.source } }] }],
+                        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+                    })
                 });
                 const imgPart = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-                if (!imgPart) throw new Error("API No Image");
                 task.result = `data:image/png;base64,${imgPart.inlineData.data}`;
                 task.status = 'success';
-            } catch (e) {
-                task.status = 'error'; task.error = e.message;
-            }
+            } catch (e) { task.status = 'error'; task.error = e.message; }
             save(); render();
         };
 
-        window.runPendingTasks = async () => {
-            const currentTasks = state.genTasks.filter(t => t.projectId === state.activeGenId && (t.status === 'ready' || t.status === 'error'));
-            for (const t of currentTasks) { await window.runSingleTask(t.id); }
-        };
+        window.runPendingTasks = async () => { const tasks = state.genTasks.filter(t => t.projectId === state.activeGenId && (t.status === 'ready' || t.status === 'error')); for (const t of tasks) await window.runSingleTask(t.id); };
 
-        // 配置管理
         window.toggleSettings = (show) => {
             if (show) {
                 document.getElementById('api-key-input').value = state.apiKey;
-                const isGen = state.view === 'generator';
-                document.getElementById('gen-prompt-setting-area').classList.toggle('hidden', !isGen);
-                if (isGen) {
-                    const currentProj = state.genProjects.find(p => p.id === state.activeGenId);
-                    document.getElementById('global-gen-prompt').value = currentProj ? currentProj.genPrompt : '';
+                document.getElementById('google-client-id').value = state.googleClientId;
+                const isG = state.view === 'generator';
+                document.getElementById('gen-prompt-setting-area').classList.toggle('hidden', !isG);
+                if (isG) {
+                    const curP = state.genProjects.find(p => p.id === state.activeGenId);
+                    document.getElementById('global-gen-prompt').value = curP ? curP.genPrompt : '';
                 }
             }
             document.getElementById('settings-modal').classList.toggle('hidden', !show);
@@ -524,15 +552,18 @@
 
         window.saveSettings = () => {
             state.apiKey = document.getElementById('api-key-input').value;
+            state.googleClientId = document.getElementById('google-client-id').value;
             if (state.view === 'generator') {
                 const prompt = document.getElementById('global-gen-prompt').value;
-                const projIdx = state.genProjects.findIndex(p => p.id === state.activeGenId);
-                if (projIdx !== -1) state.genProjects[projIdx].genPrompt = prompt;
+                const idx = state.genProjects.findIndex(p => p.id === state.activeGenId);
+                if (idx !== -1) state.genProjects[idx].genPrompt = prompt;
             }
-            save(); toggleSettings(false); render();
+            save();
+            initGoogleAuth(); 
+            toggleSettings(false);
+            render();
         };
 
-        // 提示词实验
         window.toggleAddForm = () => { state.isAdding = !state.isAdding; render(); };
         window.saveVersion = () => {
             const title = document.getElementById('input-title').value;
@@ -544,29 +575,21 @@
 
         window.handleAIAnalyze = async () => {
             if (!state.apiKey) { toggleSettings(true); return; }
-            const en = document.getElementById('input-en').value;
-            const thoughts = document.getElementById('input-thoughts').value;
+            const en = document.getElementById('input-en').value, thoughts = document.getElementById('input-thoughts').value;
             const btn = document.getElementById('ai-analyze-btn'); btn.innerText = "...";
             try {
                 const data = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${state.apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Prompt: ${en}\nThoughts: ${thoughts}` }] }],
-                        systemInstruction: { parts: [{ text: "Analyze iteration. JSON: title, reason, imperfection, zhPrompt (Chinese)." }] },
-                        generationConfig: { responseMimeType: "application/json" }
-                    })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: `Prompt: ${en}\nThoughts: ${thoughts}` }] }], systemInstruction: { parts: [{ text: "Analyze iteration JSON: title, reason, imperfection, zhPrompt." }] }, generationConfig: { responseMimeType: "application/json" } })
                 });
                 const ai = JSON.parse(data.candidates[0].content.parts[0].text);
-                document.getElementById('input-title').value = ai.title;
-                document.getElementById('input-reason').value = ai.reason;
-                document.getElementById('input-imperfection').value = ai.imperfection;
-                document.getElementById('input-zh').value = ai.zhPrompt;
+                document.getElementById('input-title').value = ai.title; document.getElementById('input-reason').value = ai.reason;
+                document.getElementById('input-imperfection').value = ai.imperfection; document.getElementById('input-zh').value = ai.zhPrompt;
             } catch (e) { alert("AI 分析异常"); }
             finally { btn.innerHTML = `${getIcon('sparkles', 12)} AI 辅助分析`; }
         };
 
-        window.onload = () => { load(); render(); };
+        window.onload = () => { load(); render(); if (state.googleClientId) initGoogleAuth(); };
     </script>
 </body>
 </html>
