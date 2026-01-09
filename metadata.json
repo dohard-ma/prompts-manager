@@ -1,7 +1,0 @@
-{
-  "name": "AI Creative Lab - Nano Banana Pro",
-  "description": "High-end image generation lab with prompt versioning and multi-image context support, powered by Gemini 3 Pro Image.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}

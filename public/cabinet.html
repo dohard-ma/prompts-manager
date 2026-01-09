@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cabinet Designer | 柜子配置实验室</title>
+    <style>
+        :root {
+            --bg-color: #f5f5f5;
+            --panel-bg: #ffffff;
+            --accent-color: #222222;
+            --text-main: #1a1a1a;
+            --text-muted: #666666;
+            --border-color: #dddddd;
+            --input-bg: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            color: var(--text-main);
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 280px;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+            scrollbar-width: none;
+        }
+        .sidebar-content::-webkit-scrollbar { display: none; }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin: 20px 0 12px;
+        }
+        .section-title:first-child { margin-top: 0; }
+
+        /* 紧凑输入框样式 */
+        .config-item {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .config-label {
+            font-size: 12px;
+            color: var(--text-main);
+        }
+
+        input[type="number"] {
+            width: 60px;
+            height: 24px;
+            border: 1px solid var(--border-color);
+            background: var(--input-bg);
+            border-radius: 3px;
+            padding: 0 4px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s;
+            text-align: right;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        /* 材质项 */
+        .texture-upload-item {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 12px;
+        }
+
+        .texture-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .texture-preview-sm {
+            width: 100%;
+            height: 80px;
+            border-radius: 2px;
+            border: 1px solid var(--border-color);
+            margin-top: 6px;
+        }
+
+        .btn-sm {
+            font-size: 10px;
+            padding: 2px 6px;
+            background: #f0f0f0;
+            border: 1px solid var(--border-color);
+            border-radius: 2px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .btn-sm:hover {
+            background: #e8e8e8;
+            color: var(--text-main);
+        }
+
+        /* 展示区 */
+        .display-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            background: #ffffff;
+        }
+
+        .cabinet-container {
+            position: relative;
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        .cabinet-part {
+            position: absolute;
+        }
+
+        .cabinet-part:hover {
+            outline: 1px solid var(--accent-color);
+            outline-offset: -1px;
+            cursor: pointer;
+        }
+
+        .handle {
+            position: absolute;
+            background: #222; /* 实色深外框 */
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1px; /* 对称的边框感 */
+            transition: all 0.2s;
+        }
+        .handle-inner {
+            width: 100%;
+            height: 100%;
+            background-repeat: repeat;
+            background-position: center;
+        }
+
+        /* 底部提示 */
+        .hint-card {
+            background: #f9f9f9;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 16px;
+        }
+
+        .hint-card p {
+            font-size: 10px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .reset-btn {
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            color: #ff4d4d;
+            border: 1px solid #ffcccc;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 12px;
+            cursor: pointer;
+        }
+        .reset-btn:hover { background: #fff5f5; border-color: #ff4d4d; }
+
+        /* 弹窗滑块（仍保留为滑块以便操作，但视觉优化） */
+        .scale-popover {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 240px;
+            z-index: 1000;
+            display: none;
+        }
+        .scale-popover.active { display: block; }
+        .popover-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 2px;
+            background: #eee;
+            appearance: none;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 10px;
+            height: 10px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>柜子配置实验室</h2>
+        </div>
+        
+        <div class="sidebar-content">
+            <h3 class="section-title">材质配置</h3>
+            
+            <div class="texture-upload-item">
+                <div class="texture-header">
+                    <span>柜门材质</span>
+                    <div style="display:flex; align-items:center; gap:2px;">
+                        <input type="number" id="input-doorScale" min="10" max="500" value="100">
+                        <span style="font-size:10px; color:var(--text-muted);">%</span>
+                    </div>
+                </div>
+                <input type="file" id="file-door" hidden>
+                <button class="btn-sm" onclick="document.getElementById('file-door').click()">上传纹理</button>
+                <div class="texture-preview-sm" style="position:relative; overflow:hidden; cursor:pointer;" onwheel="handleWheel('door', event)" onclick="event.stopPropagation(); showPopover('door');">
+                    <div id="preview-door" style="width:100%; height:100%; background-repeat:repeat; background-position:center; pointer-events:none;"></div>
+                    <img id="img-copy-door" style="position:absolute; inset:0; width:100%; height:100%; opacity:0.01;" alt="右键复制">
+                </div>
+            </div>
+
+            <div class="texture-upload-item">
+                <div class="texture-header">
+                    <span>包边与拉手</span>
+                    <div style="display:flex; align-items:center; gap:2px;">
+                        <input type="number" id="input-edgeScale" min="10" max="500" value="100">
+                        <span style="font-size:10px; color:var(--text-muted);">%</span>
+                    </div>
+                </div>
+                <input type="file" id="file-edge" hidden>
+                <button class="btn-sm" onclick="document.getElementById('file-edge').click()">上传纹理</button>
+                <div class="texture-preview-sm" style="position:relative; overflow:hidden; cursor:pointer;" onwheel="handleWheel('edge', event)" onclick="event.stopPropagation(); showPopover('edge');">
+                    <div id="preview-edge" style="width:100%; height:100%; background-repeat:repeat; background-position:center; pointer-events:none;"></div>
+                    <img id="img-copy-edge" style="position:absolute; inset:0; width:100%; height:100%; opacity:0.01;" alt="右键复制">
+                </div>
+            </div>
+
+            <div class="texture-upload-item">
+                <div class="texture-header">
+                    <span>框架与背板</span>
+                    <div style="display:flex; align-items:center; gap:2px;">
+                        <input type="number" id="input-frameScale" min="10" max="500" value="100">
+                        <span style="font-size:10px; color:var(--text-muted);">%</span>
+                    </div>
+                </div>
+                <input type="file" id="file-frame" hidden>
+                <button class="btn-sm" onclick="document.getElementById('file-frame').click()">上传纹理</button>
+                <div class="texture-preview-sm" style="position:relative; overflow:hidden; cursor:pointer;" onwheel="handleWheel('frame', event)" onclick="event.stopPropagation(); showPopover('frame');">
+                    <div id="preview-frame" style="width:100%; height:100%; background-repeat:repeat; background-position:center; pointer-events:none;"></div>
+                    <img id="img-copy-frame" style="position:absolute; inset:0; width:100%; height:100%; opacity:0.01;" alt="右键复制">
+                </div>
+            </div>
+
+            <h3 class="section-title">尺寸配置</h3>
+            <div class="config-item">
+                <span class="config-label">总宽度 (px)</span>
+                <input type="number" id="input-cabinetWidth" min="400" max="800">
+            </div>
+            <div class="config-item">
+                <span class="config-label">总高度 (px)</span>
+                <input type="number" id="input-cabinetHeight" min="500" max="900">
+            </div>
+            <div class="config-item">
+                <span class="config-label">顶部封板 (px)</span>
+                <input type="number" id="input-topEdge" min="0" max="100">
+            </div>
+            <div class="config-item">
+                <span class="config-label">底部封板 (px)</span>
+                <input type="number" id="input-bottomEdge" min="0" max="100">
+            </div>
+            <div class="config-item">
+                <span class="config-label">两侧包边 (px)</span>
+                <input type="number" id="input-sideEdge" min="0" max="100">
+            </div>
+            <div class="config-item">
+                <span class="config-label">柜门缝隙 (px)</span>
+                <input type="number" id="input-doorGap" min="1" max="20">
+            </div>
+
+            <h3 class="section-title">拉手配置</h3>
+            <div class="config-item">
+                <span class="config-label">垂直位置 (%)</span>
+                <input type="number" id="input-handleTopPos" min="10" max="70">
+            </div>
+            <div class="config-item">
+                <span class="config-label">高度 (%)</span>
+                <input type="number" id="input-handleHeight" min="5" max="50">
+            </div>
+            <div class="config-item">
+                <span class="config-label">宽度 (px)</span>
+                <input type="number" id="input-handleWidth" min="2" max="50">
+            </div>
+
+            <div class="hint-card">
+                <p>鼠标悬停在侧边栏材质预览图上滚动滚轮可快速调节纹理缩放（百分比）。点击预览图或柜体部件可弹出详细调节滑块。右键预览图可复制缩放后的贴纸图片。</p>
+            </div>
+
+            <button class="reset-btn" id="btn-reset">重置所有配置</button>
+        </div>
+    </aside>
+
+    <main class="display-area">
+        <div id="scale-popover" class="scale-popover">
+            <div class="popover-header">
+                <span id="popover-title">纹理缩放比例</span>
+                <span id="popover-val">100%</span>
+            </div>
+            <input type="range" id="popover-range" min="10" max="500">
+        </div>
+
+        <div id="cabinet" class="cabinet-container">
+            <div id="part-frame" class="cabinet-part" style="inset:0;"></div>
+            <div id="part-top" style="position:absolute; top:0; left:0; right:0; background: #999;"></div>
+            <div id="part-bottom" style="position:absolute; bottom:0; left:0; right:0; background: #999;"></div>
+            <div id="part-edge-left" class="cabinet-part"></div>
+            <div id="part-edge-right" class="cabinet-part"></div>
+            <div id="door-container" style="position:absolute; display:flex;"></div>
+        </div>
+    </main>
+
+    <script>
+        // --- 材质生成 ---
+        function generateWeavePattern() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 100; canvas.height = 100;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#f8f8f8';
+            ctx.fillRect(0, 0, 100, 100);
+            ctx.strokeStyle = '#eee';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 100; i += 4) {
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(100, i); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 100); ctx.stroke();
+            }
+            return canvas.toDataURL();
+        }
+
+        function generateTerrazzoPattern() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 200; canvas.height = 200;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fcfcfc';
+            ctx.fillRect(0, 0, 200, 200);
+            const colors = ['#e0e0e0', '#d0d0d0', '#f0f0f0', '#c0c0c0'];
+            for (let i = 0; i < 200; i++) {
+                ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+                ctx.beginPath();
+                ctx.arc(Math.random()*200, Math.random()*200, Math.random()*2+1, 0, Math.PI*2);
+                ctx.fill();
+            }
+            return canvas.toDataURL();
+        }
+
+        function generateFramePattern() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 100; canvas.height = 100;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#f2f2f2';
+            ctx.fillRect(0, 0, 100, 100);
+            return canvas.toDataURL();
+        }
+
+        // --- 状态 ---
+        const DEFAULT_CONFIG = {
+            cabinetWidth: 500, cabinetHeight: 600,
+            topEdge: 6, bottomEdge: 6, sideEdge: 24,
+            handleTopPos: 42, handleHeight: 16, handleWidth: 6,
+            doorGap: 2, doorScale: 100, edgeScale: 100, frameScale: 100
+        };
+
+        let state = {
+            config: JSON.parse(localStorage.getItem('cabinetConfig')) || {...DEFAULT_CONFIG},
+            textures: {
+                door: generateWeavePattern(),
+                edge: generateTerrazzoPattern(),
+                frame: generateFramePattern()
+            },
+            activeScalePart: null
+        };
+
+        function render() {
+            const { config, textures } = state;
+            
+            // 安全数值获取，防止空输入导致 NaN
+            const getVal = (key) => Number(config[key]) || DEFAULT_CONFIG[key] || 0;
+
+            const cabinetWidth = getVal('cabinetWidth');
+            const cabinetHeight = getVal('cabinetHeight');
+            const sideEdge = getVal('sideEdge');
+            const topEdge = getVal('topEdge');
+            const bottomEdge = getVal('bottomEdge');
+            const doorScale = getVal('doorScale');
+            const edgeScale = getVal('edgeScale');
+            const frameScale = getVal('frameScale');
+            const doorGap = getVal('doorGap');
+            const handleWidth = getVal('handleWidth');
+            const handleHeight = getVal('handleHeight');
+            const handleTopPos = getVal('handleTopPos');
+
+            // 容器
+            const container = document.getElementById('cabinet');
+            container.style.width = cabinetWidth + 'px';
+            container.style.height = cabinetHeight + 'px';
+
+            // 背板
+            const f = document.getElementById('part-frame');
+            f.style.backgroundImage = `url(${textures.frame})`;
+            f.style.backgroundSize = `${frameScale}px`;
+
+            // 上下封板 (同步框架材质)
+            const topPart = document.getElementById('part-top');
+            const bottomPart = document.getElementById('part-bottom');
+            topPart.style.height = topEdge + 'px';
+            bottomPart.style.height = bottomEdge + 'px';
+            topPart.style.backgroundImage = `url(${textures.frame})`;
+            topPart.style.backgroundSize = `${frameScale}px`;
+            bottomPart.style.backgroundImage = `url(${textures.frame})`;
+            bottomPart.style.backgroundSize = `${frameScale}px`;
+            topPart.style.borderBottom = '1px solid rgba(0,0,0,0.1)';
+            bottomPart.style.borderTop = '1px solid rgba(0,0,0,0.1)';
+
+            // 两侧包边
+            const commonEdge = {
+                backgroundImage: `url(${textures.edge})`,
+                backgroundSize: `${edgeScale}px`,
+                top: topEdge + 'px',
+                height: (cabinetHeight - topEdge - bottomEdge) + 'px'
+            };
+
+            const el = document.getElementById('part-edge-left');
+            Object.assign(el.style, commonEdge, { left: '0', width: sideEdge + 'px' });
+            
+            const er = document.getElementById('part-edge-right');
+            Object.assign(er.style, commonEdge, { right: '0', width: sideEdge + 'px' });
+
+            // 柜门容器
+            const doorCont = document.getElementById('door-container');
+            doorCont.style.left = sideEdge + 'px';
+            doorCont.style.right = sideEdge + 'px';
+            doorCont.style.top = topEdge + 'px';
+            doorCont.style.bottom = bottomEdge + 'px';
+            
+            doorCont.innerHTML = '';
+            for(let i=0; i<4; i++) {
+                const door = document.createElement('div');
+                door.className = 'cabinet-part';
+                door.style.flex = '1';
+                door.style.margin = '0px'; // 精确对接
+                door.style.position = 'relative';
+                door.style.backgroundImage = `url(${textures.door})`;
+                door.style.backgroundSize = `${doorScale}px`;
+                door.onclick = (e) => { e.stopPropagation(); showPopover('door'); };
+                
+                // 拉手生成逻辑：在 1-2 门缝和 3-4 门缝处成对出现
+                const handleSide = (i === 0 || i === 2) ? 'right' : 'left';
+                const handle = document.createElement('div');
+                handle.className = 'handle';
+                handle.style[handleSide] = "0px";
+                handle.style.top = handleTopPos + '%';
+                handle.style.width = handleWidth + 'px';
+                handle.style.height = handleHeight + '%';
+                
+                // 内芯材质
+                const inner = document.createElement('div');
+                inner.className = 'handle-inner';
+                inner.style.backgroundImage = `url(${textures.edge})`;
+                inner.style.backgroundSize = `${edgeScale}px`;
+                handle.appendChild(inner);
+
+                door.appendChild(handle);
+                doorCont.appendChild(door);
+
+                // 门缝 (透明以显露背景框架)
+                if(i < 3) {
+                    const gap = document.createElement('div');
+                    gap.style.width = doorGap + 'px';
+                    gap.style.background = 'rgba(0,0,0,0.1)'; 
+                    doorCont.appendChild(gap);
+                }
+            }
+
+            updateInputs();
+            localStorage.setItem('cabinetConfig', JSON.stringify(config));
+        }
+
+        function updateInputs() {
+            for(let key in state.config) {
+                const input = document.getElementById('input-' + key);
+                if(input) input.value = state.config[key];
+            }
+            ['door', 'edge', 'frame'].forEach(type => {
+                const preview = document.getElementById('preview-' + type);
+                if(preview) {
+                    preview.style.backgroundImage = `url(${state.textures[type]})`;
+                    preview.style.backgroundSize = (state.config[type + 'Scale'] / 2) + '%';
+                    updateCopyImage(type);
+                }
+            });
+        }
+
+        async function updateCopyImage(type) {
+            const preview = document.getElementById('preview-' + type);
+            const copyImg = document.getElementById('img-copy-' + type);
+            if (!preview || !copyImg) return;
+
+            const w = preview.offsetWidth || 240;
+            const h = preview.offsetHeight || 80;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+
+            const img = new Image();
+            img.onload = () => {
+                const pattern = ctx.createPattern(img, 'repeat');
+                // 这里的缩放逻辑：state.config[type + 'Scale'] 代表平铺宽度(px)
+                // 转换成缩放比例：scaleFactor = targetWidth / originalWidth
+                const scaleFactor = state.config[type + 'Scale'] / img.width;
+                const matrix = new DOMMatrix().scale(scaleFactor);
+                pattern.setTransform(matrix);
+                
+                ctx.fillStyle = pattern;
+                ctx.fillRect(0, 0, w, h);
+                copyImg.src = canvas.toDataURL();
+            };
+            img.src = state.textures[type];
+        }
+
+        function handleWheel(type, e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -10 : 10;
+            state.config[type + 'Scale'] = Math.max(10, Math.min(500, state.config[type + 'Scale'] + delta));
+            render();
+        }
+
+        function showPopover(type) {
+            state.activeScalePart = type;
+            const pop = document.getElementById('scale-popover');
+            const range = document.getElementById('popover-range');
+            const title = document.getElementById('popover-title');
+            const names = { door: '柜门', edge: '拉手/包边', frame: '框架/背板' };
+            title.innerText = (names[type] || type) + ' 纹理缩放';
+            range.value = state.config[type + 'Scale'];
+            document.getElementById('popover-val').innerText = range.value + '%';
+            pop.classList.add('active');
+        }
+
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.oninput = (e) => {
+                const key = e.target.id.replace('input-', '');
+                let val = e.target.value;
+                state.config[key] = val === "" ? "" : Number(val);
+                render();
+            };
+        });
+
+        document.getElementById('popover-range').oninput = (e) => {
+            state.config[state.activeScalePart + 'Scale'] = Number(e.target.value);
+            document.getElementById('popover-val').innerText = e.target.value + '%';
+            render();
+        };
+
+        ['door', 'edge', 'frame'].forEach(type => {
+            document.getElementById('file-' + type).onchange = (e) => {
+                const file = e.target.files[0];
+                if(file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        state.textures[type] = ev.target.result;
+                        render();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+        });
+
+        document.getElementById('btn-reset').onclick = () => {
+            state.config = {...DEFAULT_CONFIG};
+            render();
+        };
+
+        window.onclick = () => document.getElementById('scale-popover').classList.remove('active');
+        document.getElementById('part-frame').onclick = (e) => { e.stopPropagation(); showPopover('frame'); };
+        document.getElementById('part-edge-left').onclick = (e) => { e.stopPropagation(); showPopover('edge'); };
+        document.getElementById('part-edge-right').onclick = (e) => { e.stopPropagation(); showPopover('edge'); };
+
+        render();
+    </script>
+</body>
+</html>
