@@ -20,9 +20,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased bg-slate-50 text-slate-900`}
+        suppressHydrationWarning
       >
         <AuthProvider>{children}</AuthProvider>
       </body>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D 柜子材质可视化预览工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --trim-width: 12px; /* 侧边垂直包边厚度 */
+            --skeleton-height: 8px; /* 顶部和底部外露框架高度 */
+            --gap: 2px; /* 门缝宽度 */
+        }
+
+        /* 整体容器：严格长宽比 */
+        .cabinet-container {
+            position: relative;
+            width: 100%;
+            max-width: 340px;
+            aspect-ratio: 1 / 2.6;
+            background: #222; /* 默认深色底 */
+            margin: auto;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 30px 60px -12px rgba(0,0,0,0.3);
+        }
+
+        .texture-layer {
+            background-size: cover;
+            background-position: center;
+            transition: all 0.3s ease;
+        }
+
+        /* 1. 基础结构层 (背板/框架) */
+        .layer-skeleton {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+        
+        /* 顶部和底部的压条（属于背板/框架材质） */
+        .skeleton-bar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: var(--skeleton-height);
+            z-index: 60;
+        }
+        .bar-top { top: 0; }
+        .bar-bottom { bottom: 0; }
+
+        /* 2. 垂直包边 (侧向构件) */
+        .side-trim {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: var(--trim-width);
+            z-index: 50;
+        }
+        .side-trim-left { left: 0; }
+        .side-trim-right { right: 0; }
+
+        /* 3. 柜门饰面层 (1:1:1:1 四门等分) */
+        .doors-area {
+            position: absolute;
+            top: var(--skeleton-height);
+            bottom: var(--skeleton-height);
+            left: var(--trim-width);
+            right: var(--trim-width);
+            z-index: 10;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--gap); /* 门缝显露底层背板 */
+            padding: 0 var(--gap);
+        }
+
+        .door-panel {
+            position: relative;
+            height: 100%;
+        }
+
+        /* 把手：40%位置起始，长条垂直结构 */
+        .handle-container {
+            position: absolute;
+            top: 40%; /* 黄金分割低位起始 */
+            bottom: 10%;
+            width: 4px;
+            z-index: 100;
+            border-radius: 2px;
+        }
+        /* 左组把手位于 1、2扇门交界 */
+        .handle-pos-1-2 { left: calc(25% + var(--trim-width) - 2px); }
+        /* 右组把手位于 3、4扇门交界 */
+        .handle-pos-3-4 { right: calc(25% + var(--trim-width) - 2px); }
+
+        .label-tag {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.5);
+            position: absolute;
+            bottom: -25px;
+            width: 100%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-200 py-12 px-4">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="flex flex-col md:flex-row gap-12 items-start">
+            
+            <!-- 控制面板 -->
+            <div class="w-full md:w-1/3 space-y-8 bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl">
+                <div>
+                    <h2 class="text-xl font-bold mb-2">构造化材质配置</h2>
+                    <p class="text-slate-400 text-sm mb-6">基于“三层构造”逻辑的 2D 还原</p>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="group">
+                        <label class="block text-xs font-semibold text-indigo-400 uppercase mb-2">1. 基础结构 (背板/横梁)</label>
+                        <input type="file" accept="image/*" onchange="updateTexture(event, 'back')" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-slate-700 file:text-slate-200 hover:file:bg-slate-600 cursor-pointer transition-all">
+                    </div>
+
+                    <div class="group">
+                        <label class="block text-xs font-semibold text-pink-400 uppercase mb-2">2. 门板饰面 (四门等分)</label>
+                        <input type="file" accept="image/*" onchange="updateTexture(event, 'door')" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-slate-700 file:text-slate-200 hover:file:bg-slate-600 cursor-pointer transition-all">
+                    </div>
+
+                    <div class="group">
+                        <label class="block text-xs font-semibold text-amber-400 uppercase mb-2">3. 垂直构件 (包边/拉手)</label>
+                        <input type="file" accept="image/*" onchange="updateTexture(event, 'trim')" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-slate-700 file:text-slate-200 hover:file:bg-slate-600 cursor-pointer transition-all">
+                    </div>
+                </div>
+
+                <div class="pt-6 border-t border-slate-700">
+                    <button onclick="window.location.reload()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-900/20">
+                        重置设计方案
+                    </button>
+                </div>
+            </div>
+
+            <!-- 预览区 -->
+            <div class="w-full md:w-2/3 flex flex-col items-center">
+                <div class="cabinet-container" id="preview-cabinet">
+                    
+                    <!-- 第1层：背板与骨架 -->
+                    <div id="tex-back" class="texture-layer layer-skeleton bg-slate-950"></div>
+                    <div id="tex-back-top" class="texture-layer skeleton-bar bar-top bg-slate-700"></div>
+                    <div id="tex-back-bottom" class="texture-layer skeleton-bar bar-bottom bg-slate-700"></div>
+
+                    <!-- 第2层：垂直包边 -->
+                    <div id="tex-trim-l" class="texture-layer side-trim side-trim-left bg-slate-600"></div>
+                    <div id="tex-trim-r" class="texture-layer side-trim side-trim-right bg-slate-600"></div>
+
+                    <!-- 第3层：门板区域 -->
+                    <div class="doors-area">
+                        <div class="door-panel texture-layer door-tex bg-slate-200 shadow-inner" id="d1"></div>
+                        <div class="door-panel texture-layer door-tex bg-slate-200 shadow-inner" id="d2"></div>
+                        <div class="door-panel texture-layer door-tex bg-slate-200 shadow-inner" id="d3"></div>
+                        <div class="door-panel texture-layer door-tex bg-slate-200 shadow-inner" id="d4"></div>
+                    </div>
+
+                    <!-- 第4层：低位拉手 (跨门缝) -->
+                    <div id="tex-handle-l" class="texture-layer handle-container handle-pos-1-2 bg-slate-600 border-x border-black/10"></div>
+                    <div id="tex-handle-r" class="texture-layer handle-container handle-pos-3-4 bg-slate-600 border-x border-black/10"></div>
+
+                    <div class="label-tag">Front Elevation - 1:1 Scale Logic</div>
+                </div>
+
+                <div class="mt-16 grid grid-cols-3 gap-8 w-full max-w-md">
+                    <div class="text-center">
+                        <span class="block text-2xl font-light">4</span>
+                        <span class="text-[10px] text-slate-500 uppercase">等分门板</span>
+                    </div>
+                    <div class="text-center">
+                        <span class="block text-2xl font-light">40%</span>
+                        <span class="text-[10px] text-slate-500 uppercase">把手起始</span>
+                    </div>
+                    <div class="text-center">
+                        <span class="block text-2xl font-light">2mm</span>
+                        <span class="text-[10px] text-slate-500 uppercase">纵向显影缝</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function updateTexture(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgUrl = `url('${e.target.result}')`;
+                
+                if (type === 'back') {
+                    // 背板、顶部/底部压条
+                    document.getElementById('tex-back').style.backgroundImage = imgUrl;
+                    document.getElementById('tex-back-top').style.backgroundImage = imgUrl;
+                    document.getElementById('tex-back-bottom').style.backgroundImage = imgUrl;
+                } 
+                else if (type === 'door') {
+                    // 4个门板
+                    const doors = document.querySelectorAll('.door-tex');
+                    doors.forEach(d => d.style.backgroundImage = imgUrl);
+                } 
+                else if (type === 'trim') {
+                    // 两侧包边和拉手
+                    document.getElementById('tex-trim-l').style.backgroundImage = imgUrl;
+                    document.getElementById('tex-trim-r').style.backgroundImage = imgUrl;
+                    document.getElementById('tex-handle-l').style.backgroundImage = imgUrl;
+                    document.getElementById('tex-handle-r').style.backgroundImage = imgUrl;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    </script>
+</body>
+</html>
